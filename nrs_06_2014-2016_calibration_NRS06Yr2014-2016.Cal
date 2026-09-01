@@ -1,0 +1,31 @@
+For NRS06
+Deployed Time in Start-End year: 2014 - 2016
+Hydrophone Name/Serial Number  : H13/911
+Hydrophone's Lat°, Lng°, Depth (meters): 28.006°N,  86.994°W, 750
+ Seafloor  Depth  in  meters: 2870
+Original Data Size: 16-Bit Unsigned Integers (0 to 65535) represent the Voltage Range (0 to 2.5 Volt).
+wav file Data Size: 16-Bit Signed Integers (-32768 to 32767) represent the Voltage Range (0 to 2.5 Volt).
+wav file in matlab: values (-1 to +1) represent the Voltage Range (0 to 2.5 Volt).
+Date points/second or Hz    :  5000
+Frequency (Hz) Cut Off      :  2000
+Hydrophone Sensitivity in dB: -192.5
+Pre-amplifier Number/Version:  9B/012
+Gain Setting: 2  means additional 2x6=12 dB need to be added to the pre-amp gain curve below.
+Pre-amp Gain Curve with Gain setting = 0
+Frequency  dB
+   1	   8.0
+   2	  22.5
+   5	  33.3
+  10	  37.2
+  20	  38.5
+  50	  38.8
+ 100	  39.1
+ 200	  39.6
+ 500	  41.9
+1000	  45.1
+1800	  47.8
+1900	  48.3
+2000	  46.9
+2100	  38.5
+2200	  24.3
+2300	  21.4

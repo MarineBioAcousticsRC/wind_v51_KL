@@ -1,0 +1,245 @@
+function WindTimeSeries_NDBC
+% WindTimeSeries_NDBC.m
+% KL 260819 - Extract wind time series from an NDBC standard meteorological
+%             ("h") historical file and save it in the SAME .mat format as
+%             the CCMP output from WindTimeSeriesv4.m, so the two can be
+%             compared directly.
+%
+% Mirrors the CCMP pipeline's output fields:
+%   Proj, site, year, slat25, slon25, dnvec, uwvec, vwvec, wspeed, wmetdir
+% so an existing CCMP-comparison script can read this file unchanged.
+%
+% NOTES on NDBC standard met format (station 46086 shown):
+%   Columns: YY MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES ATMP WTMP DEWP VIS TIDE
+%   - Two comment header lines beginning with '#'
+%   - WDIR (col 6) = wind FROM direction, degrees true, meteorological
+%     convention. Fill value 999.
+%   - WSPD (col 7) = wind speed, m/s. Fill value 99.0.
+%   - Times are GMT/UTC. Sampling is 10-minute for 46086 (vs CCMP's 6-hourly).
+%
+% Wind convention / component derivation:
+%   CCMP stored uwnd (east) / vwnd (north) and derived speed & met direction:
+%       wspeed  = sqrt(u^2 + v^2)
+%       wdir    = 180/pi * atan2(v,u)         (math dir, 0=east, CCW)
+%       wmetdir = wrap of wdir to 0-360
+%   NDBC gives the opposite (WSPD + met-from-direction), so here we invert:
+%   given met-from-direction (deg true, clockwise from N) and speed, build
+%   the CCMP-consistent u/v so downstream math matches CCMP exactly.
+close all
+%% ========================== USER INPUT ============================= %%
+yearRange = 2022:2024;      % deployment year(s), e.g. 2016:2018 or [2017 2019]
+Proj      = 'SOCAL';          % region / project label
+site      = 'B';         % site label
+stationID = '46053';        % NDBC station number (used to build filename)
+
+% Actual buoy coordinates (EAST SANTA BARBARA - 12NM Southwest of Santa Barbara, CA, 46053)
+buoyLat =  34.246;          % deg N
+buoyLon = 119.842;          % deg W (positive west)
+
+% Folder holding the NDBC "h" files, named <stationID>h<year>.txt
+inpath  = 'Z:\Wind_deltaTF\Wind_Data\NDBC_Buoy\raw\46053';
+
+% Where to save processed data (same convention as CCMP: outpath\Proj\NDBC\year\)
+outpath = 'Z:\Wind_deltaTF\Wind_Data\NDBC_Buoy\raw\46053';
+%% ======================== END USER INPUT ============================ %%
+
+% Fill values used by NDBC standard met files
+WDIR_FILL = 999;
+WSPD_FILL = 99.0;
+
+for yr = yearRange
+    year = num2str(yr);
+
+    outdir = fullfile(outpath, Proj, site, year);
+    if ~isfolder(outdir)
+        disp(['Make new folder: ', outdir]);
+        mkdir(outdir);
+    end
+    disp([Proj, site, ' ', stationID, ' ', year]);
+
+    % --- Desired deployment site (for location-check figure) ---
+    [slat, slon] = WhichProjSite(Proj, site);   % desired site, lon positive West
+    % Buoy position in the same convention (buoyLon is positive West)
+    % Great-circle offset between desired site and the buoy actually used
+    R_km = 6371;
+    dLat = deg2rad(buoyLat - slat);
+    dLon = deg2rad((-buoyLon) - (-slon));   % both positive-West -> signed east
+    ahav = sin(dLat/2)^2 + cosd(slat)*cosd(buoyLat)*sin(dLon/2)^2;
+    dist_km = 2*R_km*atan2(sqrt(ahav), sqrt(1-ahav));
+    fprintf('  Buoy offset from %s%s: %.2f km\n', Proj, site, dist_km);
+
+    % --- Build input filename and read ---
+    fname = [stationID, 'h', year, '.txt'];
+    fpath = fullfile(inpath, fname);
+%     if ~isfile(fpath)
+%         warning('File not found, skipping: %s', fpath);
+%         continue
+%     end
+    if ~isfile(fpath)
+        warning('File not found, skipping: %s', fpath);
+        fprintf(2, '  >>> Looked in: %s\n', inpath);   % prints in red
+        continue
+    end
+
+    % Read the 18 numeric columns, skipping the 2 '#' header lines.
+    % readmatrix handles the whitespace delimiting and comment lines.
+    opts = detectImportOptions(fpath, 'FileType', 'text', ...
+        'CommentStyle', '#', 'NumHeaderLines', 2);
+    opts.Delimiter = {' ', '\t'};
+    opts.ConsecutiveDelimitersRule = 'join';
+    opts.LeadingDelimitersRule     = 'ignore';
+    M = readmatrix(fpath, opts);
+
+    % Column map (1-based) per NDBC standard met layout
+    YY = M(:,1); MM = M(:,2); DD = M(:,3); hh = M(:,4); mm = M(:,5);
+    WDIR = M(:,6);   % deg true, met FROM-direction
+    WSPD = M(:,7);   % m/s
+
+    % --- Keep only rows where BOTH speed and direction are valid ---
+    % (u/v derivation needs direction; CCMP downstream also drops wspeed<=0)
+    isok = (WSPD ~= WSPD_FILL) & (WDIR ~= WDIR_FILL) & (WSPD > 0);
+    nRaw   = numel(WSPD);
+    nValid = sum(isok);
+    fprintf('  %s: %d rows read, %d valid (dropped %d)\n', ...
+        fname, nRaw, nValid, nRaw - nValid);
+
+    YY = YY(isok); MM = MM(isok); DD = DD(isok); hh = hh(isok); mm = mm(isok);
+    WDIR = WDIR(isok);
+    WSPD = WSPD(isok);
+
+    % --- Time base: NDBC times are UTC; build MATLAB datenum ---
+    dnvec = datenum([YY, MM, DD, hh, mm, zeros(numel(YY),1)]);
+
+    % --- Speed / met-direction (already in NDBC form) ---
+    wspeed  = WSPD;
+    wmetdir = WDIR;   % meteorological FROM-direction, 0-360 deg true
+
+    % --- Derive u/v so fields match CCMP convention exactly ---
+    % CCMP:   wdir_math = atan2(v,u) [deg], wmetdir = wrap(wdir_math to 0-360)
+    % Invert: wdir_math (deg) = wmetdir mapped back, then
+    %         u = speed*cos(wdir_math), v = speed*sin(wdir_math)
+    % In CCMP, wmetdir == wdir_math for wdir_math in [0,360) after the wrap,
+    % i.e. the stored met direction IS the math-convention angle in that code.
+    % So we invert consistently with how CCMP built wmetdir from u/v:
+    wdir_math = wmetdir;                 % same mapping CCMP used (see header)
+    uwvec = wspeed .* cosd(wdir_math);   % "east"  component (CCMP uwnd analog)
+    vwvec = wspeed .* sind(wdir_math);   % "north" component (CCMP vwnd analog)
+
+    % --- Saved site coordinates: ACTUAL BUOY position ---
+    % (CCMP used slat25/slon25 grid-snapped coords; here we store the buoy's
+    %  true location in those same field names so downstream code reads it.)
+    slat25 = buoyLat;
+    slon25 = buoyLon;
+
+
+    %% ---------------- Location-check figure ----------------
+    % Desired deployment site vs. actual NDBC buoy providing the wind.
+    % (No CCMP grid to snap to here, so we simply show the two points and
+    %  the great-circle offset between them.)
+    slon_std   = -slon;      % positive-West -> standard signed lon (deg E)
+    buoyLon_std = -buoyLon;   % same convention
+
+    figLoc = figure('Name', [Proj, site, ' Site vs NDBC ', stationID]);
+
+    % zoomed-in panel
+    subplot(1,2,1); hold on
+    hDesired = plot(slon_std, slat, 'rx', 'MarkerSize',12, 'LineWidth',2);
+    hBuoy    = plot(buoyLon_std, buoyLat, 'bo', 'MarkerSize',10, 'LineWidth',2);
+    plot([slon_std buoyLon_std], [slat buoyLat], 'k-');   % connecting line
+    axis equal
+    buf = max(0.6, dist_km/111 * 0.75);   % view scales with offset
+    midLon = mean([slon_std buoyLon_std]);
+    midLat = mean([slat buoyLat]);
+    xlim([midLon-buf, midLon+buf]);
+    ylim([midLat-buf, midLat+buf]);
+    xlabel('Longitude (deg)'); ylabel('Latitude (deg)');
+    title({[Proj, site, ' vs NDBC ', stationID, ' - Zoomed In'], ...
+           ['Offset: ', num2str(dist_km,'%.2f'), ' km']});
+    legend([hDesired, hBuoy], {'Desired site', ['NDBC ', stationID]}, ...
+        'Location','southoutside');
+    box on
+
+    % zoomed-out regional panel
+    subplot(1,2,2); hold on
+    try
+        load coastlines coastlat coastlon
+        plot(coastlon, coastlat, 'k-');
+    catch
+        disp('Coastline data (load coastlines) not available - skipping basemap.');
+    end
+    hDesired2 = plot(slon_std, slat, 'rx', 'MarkerSize',12, 'LineWidth',2);
+    hBuoy2    = plot(buoyLon_std, buoyLat, 'bo', 'MarkerSize',10, 'LineWidth',2);
+    axis equal
+    bufOut = 5;
+    xlim([midLon-bufOut, midLon+bufOut]);
+    ylim([midLat-bufOut, midLat+bufOut]);
+    xlabel('Longitude (deg)'); ylabel('Latitude (deg)');
+    title([Proj, site, ' - Regional View']);
+    legend([hDesired2, hBuoy2], {'Desired site', ['NDBC ', stationID]}, ...
+        'Location','southoutside');
+    grid on; box on
+
+    fsLoc = fullfile(outdir, [Proj, site, '_NDBC', stationID, '_sitecheck']);
+    saveas(figLoc, fsLoc, 'pdf');
+    saveas(figLoc, fsLoc, 'png');
+
+    %% ---------------- Plot (same layout as CCMP script) ----------------
+    figure('Name', [Proj, site, ' ', stationID, ' ', year]);
+
+    subplot(2,1,1)
+    plot(dnvec, wspeed);
+    datetick('x','mmm')
+    title([Proj, site, ' NDBC ', stationID, ' Wind Speed ', year, ...
+        '   lat= ', num2str(slat25), '   lon= ', num2str(slon25)]);
+    ylabel('Wind Speed (m/s)');
+    xlabel('Month');
+    grid on
+
+    subplot(2,1,2)
+    plot(dnvec, wmetdir);
+    datetick('x','mmm')
+    title([Proj, site, ' NDBC ', stationID, ' Wind Direction ', year]);
+    ylabel('Met Wind Direction re: North (deg)');
+    xlabel('Month');
+    ylim([0 360]);
+    grid on
+
+    %% ---------------- Polar wind direction figure ----------------
+    % Angle = met direction (from N, clockwise compass sense).
+    % Radius = day-of-year, so January is near the center and December
+    % is out at the rim. Color = wind speed.
+    figPolar = figure('Name', [Proj, site, ' NDBC ', stationID, ' Polar Wind ', year]);
+
+    doy   = dnvec - datenum(str2double(year), 1, 1);   % days since Jan 1
+    rPlot = sqrt(doy);                                  % area-proportional radius
+    theta = deg2rad(wmetdir);
+
+    skip = 6;
+    polarscatter(theta(1:skip:end), rPlot(1:skip:end), 12, wspeed(1:skip:end), 'filled');
+    cb = colorbar; cb.Label.String = 'Wind speed (m/s)';
+
+    axP = gca;
+    axP.ThetaZeroLocation = 'top';
+    axP.ThetaDir          = 'clockwise';
+    % Ticks placed at sqrt of each month-start day so labels land correctly
+    monthStarts = datenum(str2double(year), 1:12, 1) - datenum(str2double(year),1,1);
+    axP.RTick      = sqrt(monthStarts(1:3:end));   % Jan, Apr, Jul, Oct
+    axP.RTickLabel = {'Jan','Apr','Jul','Oct'};
+    title({['NDBC ', stationID, ' Wind Direction ', year], ...
+           'angle = met dir (from N), radius = month, color = speed'});
+
+    % ---------------- Save (CCMP field-for-field) ----------------
+    fs = fullfile(outdir, [Proj, site, 'windvec']);
+    save(fs, 'Proj', 'site', 'year', 'slat25', 'slon25', ...
+        'dnvec', 'uwvec', 'vwvec', 'wspeed', 'wmetdir', ...
+        'stationID', 'buoyLat', 'buoyLon');
+    saveas(gcf, fs, 'pdf');
+    fsPolar = fullfile(outdir, [Proj, site, '_NDBC', stationID, '_polarwind_', year]);
+    saveas(figPolar, fsPolar, 'png');
+    fprintf('  Saved polar plot: %s.png\n', fsPolar);
+
+    fprintf('  Saved: %s.mat (+ .pdf)\n', fs);
+end
+
+disp('Done.');
+end

@@ -1,0 +1,1048 @@
+%Ambient Noise Curve
+%Knudsen8
+%Knudsen7 extends to 20 Hz
+%knudsen6 ends at 100 Hz
+%With Acknowldegement to Donald Ross and Gordon Wenz
+%J Hildebrand 1-26-2008, 1-2020, 10-2020, 11-2020
+%
+clear all;
+depth = 1000;
+% sfile = 'H:\Wind_TF\Output\pub_TF\TFCorr\stats\windslope.mat';
+% load(sfile)
+% knudsen5 aof = 10; bof = 100; a = 0; b = 400;
+%Knudsen8
+% a = 2; b = 100; aof = 2; bof = 100; cof = 12; %mult cof by 100 for freq
+% off = 50 + a*exp(-depth/b); % pure depth dependence
+% ofac = exp(-depth/bof)*aof*(cof-iifm/10)/cof; % depth and frequency
+%knudsen7
+% nfacl = 1000; nfacld = 400; % nfacl = nfac linear depth, nfacld non linear
+% nfacf(1) = 201; nfacf(2) = 101; nfacf(3) = 62; nfacf(4) = 41;
+%Knudsen8
+nfacl = 1000; nfacld = 400; % nfacl = nfac linear depth, nfacld non linear
+nfacf(1) = 201; nfacf(2) = 101; nfacf(3) = 62; nfacf(4) = 41; %nfacf = freq for non-linear
+%  nfac = (depth/nfacl+ 0.04*exp(-depth/nfacld))*0.3*n*(iif-nfacf(1))/length(f);
+% mfaca = 1.; mfacl = 1000; mfacf = 100; % mfacl is depth, mfacf is freq/100
+%         mfac(iif) = (1 - depth/mfacl)* mfaca * m * (mfacf - iif)/length(f);
+%Knudsen8 final
+a=2.8; b=600; aof=0; bof=100; cof=12; %new model parameters
+nfacl = 1000; mfacl = 1000; mfacf = 150; mfaca = 3;%
+% frequency in kHz
+fm = .01 : .01 : .1; % 10 Hz steps 10 Hz - 100 Hz
+f = .1 : .1 : 160; % 100 Hz steps 100 Hz - 100 kHz
+fp = [fm,f]; % frequency for plots
+ms = [1, 2.5, 4.5, 6.7, 9.4, 12.3, 15.5, 19, 22.6, 26.5, 30.5];
+lms = log10(ms);
+ss = [.5, 1,2,3,4,5,6,7,8,9, 10];
+beau = [1,2,3,4,5,6,7,8,9,10,11];
+fWi = [100, 500, 1000, 5000, 10000, 20000, 30000, 100000];
+nl = zeros(length(ms),length(f));
+%color scale for plots
+C = [0.368627450980392,0.309803921568627,0.635294117647059;...
+    0.196078431372549,0.533333333333333,0.741176470588235;...
+    0.301960784313725, 0.745098039215686, 0.933333333333333;...
+    0.466666666666667, 0.674509803921569, 0.188235294117647;...
+    0.419607843137255, 0.819607843137255, 0.156862745098039;...
+    0.831372549019608, 0.831372549019608, 0.266666666666667;...
+    0.968627450980392, 0.772549019607843, 0.223529411764706;...
+    0.949019607843137, 0.525490196078431, 0.105882352941176;...
+    0.956862745098039, 0.427450980392157, 0.262745098039216;...
+    0.835294117647059, 0.243137254901961, 0.309803921568627;...
+    0.619607843137255, 0.00392156862745098, 0.258823529411765;...
+    0.498039215686275, 0.870588235294118, 0.235294117647059];
+%%
+% Model for Knudson curves 10 Hz - 100 Hz
+%Kundsen8
+off = 50 + a*exp(-depth/b);
+% depth = 1000;
+% frequency in kHz
+fm = .01 : .01 : .1; % 10 Hz steps 10 Hz - 100 Hz
+f = .1 : .1 : 160; % 100 Hz steps 100 Hz - 100 kHz
+fp = [fm,f]; % frequency for plots
+%
+ms = [1, 2.5, 4.5, 6.7, 9.4, 12.3, 15.5, 19, 22.6, 26.5, 30.5];
+lms = log10(ms);
+ss = [.5, 1,2,3,4,5,6,7,8,9, 10];
+beau = [1,2,3,4,5,6,7,8,9,10,11];
+fWi = [100, 500, 1000, 5000, 10000, 20000, 30000, 100000, 160000];
+nl = zeros(length(ms),length(f));
+mfac = zeros(1,length(f));
+% Noise Model Here
+%%
+% Model for Knudson curves 10 Hz - 100 Hz
+n = 0.5; m= -1;  off = off -8.;
+for iw = 1 % wind less than 1 m/s
+    for iifm = 1:10 % freq 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iifm/10)/cof; % depth and frequency
+        nlm(iw,iifm) = ofac + off+6.4 + (n*20* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ;
+        osavem(iw,iifm) = ofac + off+6.4;
+        nsavem(iw,iifm) = n;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+end
+n = 1;
+for iw = 2 % wind 1 - 2.5 m/s
+    for iifm = 1:10 % freq 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+1.5 + (n*20* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ;
+        osavem(iw,iifm) = ofac + off+1.5 ;
+        nsavem(iw,iifm) = n;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n = 1;
+for iw = 3 % wind 2.5 - 4.5 m/s
+    for iifm = 1:10 % freq 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off-0.5 + (n*20* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ;
+        osavem(iw,iifm) = ofac + off-0.5 ;
+        nsavem(iw,iifm) = n;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n = 1.25;  off = off - 10;
+for iw = 4 % wind 4.5 - 6.7 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+3.2 + (n *22* log10(ms(iw))) +4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+3.2 ;
+        nsavem(iw,iifm) = n * 22 /20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 5 % wind 6.7 - 9.4 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+1.83 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+1.83 ;
+        nsavem(iw,iifm) = n * 23 /20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 6 % wind 9.4 - 12.3 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.4 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.4;
+        nsavem(iw,iifm) = n* 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 7 % wind > than 12 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.18 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.18 ;
+        nsavem(iw,iifm) = n* 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 8 % wind > than 12 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.27 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.27 ;
+        nsavem(iw,iifm) = n* 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 9 % wind > than 12 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.54 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.54 ;
+        nsavem(iw,iifm) = n * 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 10 % wind > than 12 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof- iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.72 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.72 ;
+        nsavem(iw,iifm) = n * 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+    
+end
+n=1.25;
+for iw = 11 % wind > than 12 m/s
+    for iifm = 1:10 % 100-1000 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iifm/10)/cof;
+        nlm(iw,iifm) = ofac + off+2.8 + (n *23* log10(ms(iw))) + 4 *m* log10(fm(iifm)) ; %m=1
+        osavem(iw,iifm) = ofac + off+2.8 ;
+        nsavem(iw,iifm) = n * 23/20;
+        msavem(iw,iifm) = m * 4 / 10;
+    end
+end
+%%
+% Model for Knudson curves 100 Hz - 100 kHz
+n = 0.5; m= 1;  off = off +18.;
+for iw = 1 % wind less than 1 m/s
+    for iif = 1:4 % freq 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof; % depth and frequency
+        nl(iw,iif) = ofac + off+5.4 + (n*20* log10(ms(iw))) + 3 *(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off+5.4;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = 3 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off+0.3 + (n*20* log10(ms(iw))) -  10.5*(m - mfac(iif))* log10(f(iif)) ; %9.5
+        osave(iw,iif+iifm) = ofac + off+0.3;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = -  10.5*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 %  1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac+ off+0.1 + (n*20* log10(ms(iw))) - 10.4 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off+0.1;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 10.4 *(m - mfac(iif)) / 10;
+    end
+    for iif = 41:100 %  4100 Hz - 10000 Hz
+        nl(iw,iif) = off+2 + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+2;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 101:length(f) % > 10000 Hz
+        mfac(iif) = (1 - depth/mfacl)* mfaca * m * (mfacf - iif)/length(f);
+        if iif > 400
+            mfac(iif) = mfac(400);
+        elseif iif < mfacf
+            mfac(iif) = 0;
+        end
+        nl(iw,iif) = off+2 + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+2;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+end
+n = 1; m= 1;
+for iw = 2 % wind 1 - 2.5 m/s
+    for iif = 1:4 % freq 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-0.14 + (n*20* log10(ms(iw))) + 2.3 *(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.14 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = 2.3 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-4.7 + (n*20* log10(ms(iw))) - 10.7*(m - mfac(iif))* log10(f(iif)) ;%11.5
+        osave(iw,iif+iifm) = ofac + off - 4.7 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 10.7*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 %  1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-5 + (n*20* log10(ms(iw))) - 10.2 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-5 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 10.2 *(m - mfac(iif)) / 10;
+    end
+    for iif = 41:100 %  4100 Hz - 10000 Hz
+        nl(iw,iif) = off-3 + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off-3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 101:length(f) % > 10000 Hz
+        nl(iw,iif) = off-3 + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off-3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+end
+n = 1; m= 1;
+for iw = 3 % wind 2.5 - 4.5 m/s
+    for iif = 1:4 % freq 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-2.81 + (n*20* log10(ms(iw))) + 1.6 *(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-2.81 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = 1.6 *(m - mfac(iif))/ 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-6.8 + (n*20* log10(ms(iw))) - 10*(m - mfac(iif))* log10(f(iif)) ;%9.3
+        osave(iw,iif+iifm) = ofac + off-6.8 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 10*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 %  1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-7 + (n*20* log10(ms(iw))) - 8.7 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-7 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 8.7 *(m - mfac(iif)) / 10;
+    end
+    for iif = 41:100 %  4100 Hz - 10000 Hz
+        nl(iw,iif) = off-4 + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off-4 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 101:length(f) % > 10000 Hz
+        nl(iw,iif) = off-4. + (n*20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off-4 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+end
+n = 1.25; m= 1; off = off - 10;
+for iw = 4 % wind 4.5 - 6.7 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off+0.18 + (n *22* log10(ms(iw))) + 0.9 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off+0.18 ;
+        nsave(iw,iif+iifm) = n * 22 /20;
+        msave(iw,iif+iifm) =  0.9 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-0.1 + (n *20* log10(ms(iw))) -  7*(m - mfac(iif))* log10(f(iif)) ;%7.5
+        osave(iw,iif+iifm) = ofac + off-0.1 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = -  7*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-0.4 + (n *20* log10(ms(iw))) - 10.2 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.4 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 10.2 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:200 % 4100 Hz - 20000 Hz
+        nl(iw,iif) = off+5.75 + (n *20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+5.75 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 201:length(f) % 20000 Hz - 100000 Hz
+        nfac = (depth/nfacl+ 0.04*exp(-depth/nfacld))*0.3*n*(iif-nfacf(1))/length(f);
+        nl(iw,iif) = off+5.7 + ((n - nfac) *20* log10(ms(iw))) - 13.5 *(m - mfac(iif))* log10(f(iif));%m = 1.6
+        osave(iw,iif+iifm) = off+5.7 ;
+        nsave(iw,iif+iifm) = n-nfac;
+        msave(iw,iif+iifm) = - 13.5 *(m - mfac(iif)) / 10;
+    end
+end
+n=1.25; m= 1;
+for iw = 5 % wind 6.7 - 9.4 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-1.9 + (n *23* log10(ms(iw))) + 0.2 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-1.9 ;
+        nsave(iw,iif+iifm) = n * 23 /20;
+        msave(iw,iif+iifm) = 0.2 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off+0 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;%5
+        osave(iw,iif+iifm) = ofac + off ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-0.3 + (n *20* log10(ms(iw))) - 12.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 12.5 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:200 % 4100 Hz - 20000 Hz
+        nl(iw,iif) = off+5.5 + (n *20* log10(ms(iw))) - 14 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+5.5 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14 *(m - mfac(iif)) / 10;
+    end
+    for iif = 201:length(f) % 20000 Hz - 100000 Hz
+        nfac = (depth/nfacl+ 0.08*exp(-depth/nfacld))*0.3*n*(iif-nfacf(1))/length(f);
+        nl(iw,iif) = off+5.5 + ((n - nfac) *20* log10(ms(iw))) - 14 *(m - mfac(iif))* log10(f(iif));%m = 1.6
+        osave(iw,iif+iifm) = off+5.5 ;
+        nsave(iw,iif+iifm) = n-nfac;
+        msave(iw,iif+iifm) = - 14 *(m - mfac(iif)) / 10;
+    end
+end
+n=1.25; m= 1;
+for iw = 6 % wind 9.4 - 12.3 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-2.10 + (n *23* log10(ms(iw))) - 0.5 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-2.10;
+        nsave(iw,iif+iifm) = n* 23/20;
+        msave(iw,iif+iifm) = - 0.5 *(m - mfac(iif))/ 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-0.12 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.12 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-0.3 + (n *20* log10(ms(iw))) - 13.7*(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 13.7 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:100 % 4100 Hz - 10000 Hz
+        nl(iw,iif) = off+5.6 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) =  off+5.6 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 101:length(f) % 10000 Hz - 100000 Hz
+        nfac = (depth/nfacl+ 0.17*exp(-depth/nfacld))*0.7*n*(iif-nfacf(2))/length(f);
+        nl(iw,iif) = off+5.65 + ((n - nfac) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)); %m = 1.6
+        osave(iw,iif+iifm) = off+5.65 ;
+        nsave(iw,iif+iifm) = n-nfac;
+        msave(iw,iif+iifm) =  - 14.5 *(m - mfac(iif)) / 10;
+        %  no wind dependence > 10 kHz for > 15 m/s
+    end
+end
+n=1.25; m= 1;
+for iw = 7 % wind > than 12 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-3.02 + (n *23* log10(ms(iw))) - 1.2 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-3.02 ;
+        nsave(iw,iif+iifm) = n* 23/20;
+        msave(iw,iif+iifm) = - 1.2 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-.3 + (n *20* log10(ms(iw))) - 5*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 5*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-.3 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:61 % 4100 Hz - 6000 Hz
+        nl(iw,iif) = off+5.75 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+5.75 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    for iif = 62:length(f) % 6000 Hz - 100000 Hz
+        nfac(iif) = (depth/nfacl+ 0.24*exp(-depth/nfacld))*1.2*n*(iif-nfacf(3))/(length(f));
+        nl(iw,iif) = off+5.85 + ((n - nfac(iif)) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+5.85 ;
+        nsave(iw,iif+iifm) = n-nfac(iif);
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+end
+n=1.25; m= 1;
+for iw = 8 % wind > than 12 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-3.54 + (n *23* log10(ms(iw))) - 1.9 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-3.54 ;
+        nsave(iw,iif+iifm) = n* 23/20;
+        msave(iw,iif+iifm) = - 1.9 *(m - mfac(iif))/ 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-.3 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-.3 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:length(f) % 4100 Hz - 100000 Hz
+        nfac(iif) = (0.6*exp(-depth/nfacld) + depth/nfacl)*1.8*n*(iif-nfacf(4))/(length(f));
+        nl(iw,iif) = off+6.1 + ((n - nfac(iif)) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) =  off+6.1 ;
+        nsave(iw,iif+iifm) = n - nfac(iif);
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+        %  no wind dependence > 10 kHz for > 15 m/s
+    end
+end
+n=1.25; m= 1;
+for iw = 9 % wind > than 12 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-4.06 + (n *23* log10(ms(iw))) - 2.6 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-4.06 ;
+        nsave(iw,iif+iifm) = n * 23/20;
+        msave(iw,iif+iifm) = - 2.6 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-.3 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-.3 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    n= 1.0;
+    for iif = 41:length(f) % 4100 Hz - 100000 Hz
+        nfac(iif) = (depth/nfacl+ 1*exp(-depth/nfacld))*2.2*n*(iif-nfacf(4))/(length(f));
+        nl(iw,iif) = off+6.4 + ((n - nfac(iif)) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+6.4 ;
+        nsave(iw,iif+iifm) = n - nfac(iif);
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+        %  no wind dependence > 10 kHz for > 15 m/s
+    end
+end
+n=1.25; m= 1;
+for iw = 10 % wind > than 12 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-4.58 + (n *23* log10(ms(iw))) - 3.3 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-4.58 ;
+        nsave(iw,iif+iifm) = n * 23/20;
+        msave(iw,iif+iifm) = - 3.3 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-.3 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-.3 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) =  - 14.5 *(m - mfac(iif)) / 10;
+    end
+    n=1.0;
+    for iif = 41:length(f) % 4100 Hz - 100000 Hz
+        nfac(iif) = (depth/nfacl+ 1.6*exp(-depth/nfacld))*2.5*n*(iif-nfacf(4))/(length(f));
+        nl(iw,iif) = off+6.85 + ((n - nfac(iif)) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+6.85 ;
+        nsave(iw,iif+iifm) = n - nfac(iif);
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+        %  no wind dependence > 10 kHz for > 15 m/s
+    end
+end
+n=1.25; m= 1;
+for iw = 11 % wind > than 12 m/s
+    for iif = 1:4 % 100-400 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-5.2 + (n *23* log10(ms(iw)))  - 4 *(m - mfac(iif))* log10(f(iif)) ; %m=1
+        osave(iw,iif+iifm) = ofac + off-5.2 ;
+        nsave(iw,iif+iifm) = n * 23/20;
+        msave(iw,iif+iifm) = - 4 *(m - mfac(iif)) / 10;
+    end
+    for iif = 5:9 % 500-900 Hz
+        ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        nl(iw,iif) = ofac + off-.3 + (n *20* log10(ms(iw))) - 6*(m - mfac(iif))* log10(f(iif)) ;
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 6*(m - mfac(iif)) / 10;
+    end
+    for iif = 10:40 % 1000 Hz - 4000 Hz
+        if iif <= cof
+            ofac = exp(-depth/bof)*aof*(cof-iif)/cof;
+        end
+        nl(iw,iif) = ofac +off-.3 + (n *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = ofac + off-0.3 ;
+        nsave(iw,iif+iifm) = n;
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+    end
+    n = 1.0;
+    for iif = 41:length(f) % 4100 Hz - 100000 Hz
+        nfac(iif) = (depth/nfacl+ 1.8*exp(-depth/nfacld))*2.7*n*(iif-nfacf(4))/(length(f));
+        nl(iw,iif) = off+7.15 + ((n - nfac(iif)) *20* log10(ms(iw))) - 14.5 *(m - mfac(iif))* log10(f(iif)) ; %m = 1.6
+        osave(iw,iif+iifm) = off+7.15 ;
+        nsave(iw,iif+iifm) = n - nfac(iif);
+        msave(iw,iif+iifm) = - 14.5 *(m - mfac(iif)) / 10;
+        %  no wind dependence > 10 kHz for > 15 m/s
+    end
+end
+%%
+fp = [fm,f]; % frequency for plots
+%
+% depth dependance correction to Knudsen spectra
+% eqn (3)->(4) from Kurahshi and Gratta 2007
+% or similarly eqn (10)->(12) Short 2005 IEEE
+% depth of hydrophone:
+h = depth;   % [meters
+% start,end step angle [rad]
+ti = 0;
+to = pi/2;
+dt = to/90;
+% alpha -> sound absorbtion coefficient
+T = 10; %           T is temperature in deg-C
+S = 35; %           S is salinity in PSU
+pH = 8; %           pH (default is 8)
+[alpha] = AMCAtten(fp,h,T,S,pH); % Ainslie and McColm
+alphah = alpha * h/1000;
+eah = 10.^(-alphah/10);
+% loop over angle (theta)
+Joah = 0;
+Joo= 0;
+for t = ti:dt:to
+    ct = cos(t);
+    sct = sec(t);
+    st = sin(t);
+    po = ct * st;
+    pc = po * eah.^sct;
+    Joah = Joah + pc;
+    Joo = Joo + po;
+end
+% depth dependance correction to Knudsen spectra
+ddc = 10 .* log10(Joah ./ Joo); % depth dependent correction
+oshort = ones(length(ms),1)*ddc;
+osave = osave + oshort; % add the depth dependent correction
+osave(1:11,1:10) = osave(1:11,1:10) + osavem; %add the mid frequency
+nsave(1:11,1:10) = nsave(1:11,1:10) + nsavem; %add the mid frequency
+msave(1:11,1:10) = msave(1:11,1:10) + msavem; %add the mid frequency
+%% Plots
+% coefficient plots
+Figoff = figure;
+for i = 1 : length(beau)
+    semilogx(fp*1000,osave(i,:),'color',C(i,:),'LineWidth',2,...
+        'DisplayName',['Beaufort ',num2str(beau(i))]);
+    hold on
+end
+xlabel('Frequency (Hz)','FontSize',14);
+ylabel('Offset (dB re uPa^2/Hz)','FontSize',14);
+legend('show','Location','northeast')
+title(['Offset for Depth= ',num2str(depth)]);
+axis([10,100000,18,58]);
+legend off
+%
+Figslopewin = figure;
+for i = 1 : length(beau)
+    semilogx(fp*1000,nsave(i,:),'color',C(i,:),'LineWidth',2,...
+        'DisplayName',['Beaufort ',num2str(beau(i))]);
+    hold on
+end
+% semilogx(sfreq,mS20,'x','color','k')
+xlabel('Frequency (Hz)','FontSize',14);
+ylabel('Slope Wind n (dB re uPa^2/Hz / (m/s))','FontSize',14);
+legend('show','Location','southwest')
+title(['N windslope for Depth= ',num2str(depth)]);
+legend off
+%
+% Figslopefreq = figure;
+for i = 1 : length(beau)
+    semilogx(fp*1000,msave(i,:),'--','color',C(i,:),'LineWidth',2,...
+        'DisplayName',['Beaufort ',num2str(beau(i))]);
+    hold on
+end
+xlabel('Frequency (Hz)','FontSize',14);
+ylabel('Slope Frequency m (dB re uPa^2/Hz / Hz)','FontSize',14);
+legend('show','Location','northeast')
+title(['M frequency slope for Depth= ',num2str(depth)]);
+axis([10,100000,-2,1.5]);
+%
+kdp = [nlm,nl];% theoretical noise level with ss
+kdp = kdp + + ones(length(ms),1)*ddc; % depth dependent correction
+% plot Knudsen curves
+FFig = figure;
+for i = 1: length(beau)
+    semilogx1=semilogx(1000*fp, kdp(i,:),'color',C(i,:),'LineWidth',2,...
+        'DisplayName',['Beaufort ',num2str(beau(i))]);
+    hold on
+    %         semilogx(1000*f, kd(i,:),'LineWidth',2);
+end
+legend('show','Location','southwest')
+xlabel('Frequency (Hz)','FontSize',14);
+ylabel('Pressure Spectrum Level (dB re uPa^2/Hz)','FontSize',14);
+title(['Noise with frequency for Depth= ',num2str(depth)]);
+ax = gca;
+ax.YAxis.FontSize = 14; %for y-axis
+ax.XAxis.FontSize = 14; %for y-axis
+% i=5;
+% semilogx(1000*f, kd(i,:),'k','LineWidth',2); % ss = 5 is log10(ms) = 1
+% Thermal Noise curve
+nt = zeros(1,length(fp));
+for iif = 1:length(fp)
+    nt(iif) = -15 + 20 * log10(fp(iif));
+end
+semilogx(1000*fp, nt,'k','LineWidth',2,...
+    'DisplayName','Thermal Noise');
+axis([10,100000,10,95]);
+grid on
+%
+% %combine kdp and nt
+for j = 1 : length(kdp(:,1))
+    for i = 1 : length(nt)
+        if kdp(j,i) < nt(i)
+            kdp(j,i) = nt(i);
+        end
+    end
+end
+%
+% % Wind speed curves
+% N = length(fWi);
+% % C = linspecer(N,'qualitative');
+% C = linspecer(N,'sequential');
+WFig = figure;
+for i = 1 : length(fWi)
+    if i < 6
+        ci = i;
+    else
+        ci = i + 2;
+    end
+    plot(log10(ms),kdp(:,fWi(i)/100),'color',C(ci,:),'LineWidth',2,'DisplayName',...
+        [num2str(fWi(i)),' Hz'])
+    %         plot(log10(ms),kd(:,fWi(i)/100),'LineWidth',2,...
+    %         'DisplayName', num2str(fWi(i)))
+    hold on
+    %     plot(log10(ms),kd(:,fWi(i)/100),'LineWidth',2)
+end
+xticks(lms);
+mss = {};
+for i = 1 : length(ms)
+    mss{i} = num2str(ms(i));
+end
+xticklabels(mss)
+xtickangle(45)
+legend('show','Location','northwest')
+xlabel('Wind Speed (m/s)','FontSize',14);
+ylabel('Pressure Spectrum Level (dB re uPa^2/Hz)','FontSize',14);
+title(['Noise with windspeed for Depth= ',num2str(depth)]);
+ax = gca;
+ax.YAxis.FontSize = 14; %for y-axis
+ax.XAxis.FontSize = 14; %for y-axis
+% ax.XLim = ([0 1.5]);  % JAH was 0.5 mlogws
+ax.YLim = ([20 80]);
+grid on
+%
+ncol = zeros(11000,1);
+x = ncol;
+y = ncol;
+ix = 1;
+for i = 1 : length(ms)
+    for j = 1 : length(f)
+        x(ix) = ms(i);
+        y(ix) = f(j);
+        ncol(ix) = nl(i,j);
+        ix = ix + 1;
+    end
+end
+% %
+% Kundsen
+figure(FFig);
+ref = ['Knudsen'];
+%  BF7
+ndata = [71,54.5];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(7,:),...
+    'MarkerFaceColor',C(7,:));
+text(fdata(1),ndata(1),'7');
+legend('show','Location','northwest')
+%
+% BF5
+ndata = [66.6,50];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(5,:),...
+    'MarkerFaceColor',C(5,:));
+text(fdata(1),ndata(1),'5');
+legend('show','Location','northwest')
+%
+% BF4
+ndata = [64.5,47.9];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(4,:),...
+    'MarkerFaceColor',C(4,:));
+text(fdata(1),ndata(1),'4');
+legend('show','Location','northwest')
+%
+% BF3
+ndata = [61.6,45];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(3,:),...
+    'MarkerFaceColor',C(3,:));
+text(fdata(1),ndata(1),'3');
+legend('show','Location','northwest')
+%
+% BF2
+ndata = [55.5,38.9];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(2,:),...
+    'MarkerFaceColor',C(2,:));
+text(fdata(1),ndata(1),'2');
+legend('show','Location','northwest')
+%
+% BF1
+ndata = [51,33.4];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'o',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(1,:),...
+    'MarkerFaceColor',C(1,:));
+text(fdata(1),ndata(1),'1');
+legend('show','Location','northwest')
+%
+ref = ['Wenz'];
+%  BF8
+ndata = [71,54.5];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'x',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(8,:),...
+    'MarkerFaceColor',C(8,:));
+text(fdata(1)+100,ndata(1),'8');
+legend('show','Location','northwest')
+%
+% BF5
+ndata = [65,48];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'x',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(5,:),...
+    'MarkerFaceColor',C(5,:));
+text(fdata(1)+100,ndata(1),'5');
+legend('show','Location','northwest')
+%
+% % BF4
+% ndata = [64.5,47.9];
+% fdata = [1000,10000];
+% semilogx(fdata,ndata,'x',...
+%      'MarkerSize',6,...
+%     'MarkerEdgeColor',C(4,:),...
+%     'MarkerFaceColor',C(4,:));
+% text(fdata(1),ndata(1),'4');
+% legend('show','Location','northwest')
+% %
+% BF3
+ndata = [58,40];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'x',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(3,:),...
+    'MarkerFaceColor',C(3,:));
+text(fdata(1)+100,ndata(1),'3');
+legend('show','Location','northwest')
+%
+% BF2
+ndata = [53,36];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'x',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(2,:),...
+    'MarkerFaceColor',C(2,:));
+text(fdata(1)+100,ndata(1),'2');
+legend('show','Location','northwest')
+%
+% BF1
+ndata = [45,28];
+fdata = [1000,10000];
+semilogx(fdata,ndata,'x',...
+     'MarkerSize',6,...
+    'MarkerEdgeColor',C(1,:),...
+    'MarkerFaceColor',C(1,:));
+text(fdata(1)+100,ndata(1),'1');
+legend('show','Location','northwest')
+%
+if 0
+    figure(FFig);
+    %Nystuen for shallow water Ma et al. 2005
+    ref = ['Nystuen'];
+    % just above ss3 = BF4
+    wdata = [7, 7];
+    lwdata = log10(wdata);
+    ndata = [61,46];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':r','Linewidth',3);
+    % just above ss2 = BF 3/4
+    wdata = [5, 5];
+    lwdata = log10(wdata);
+    ndata = [58,43];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':g','Linewidth',3);
+    % just above ss1 = 2-4 m/s = BF2/3
+    wdata = [3, 3];
+    lwdata = log10(wdata);
+    ndata = [54.5,37.5];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':k','Linewidth',3);
+    % legend('show')
+    %Ross BTL 1954 For deep water
+    % ref = ['Ross'];
+    % ss6
+    wdata = [15.5, 15.5];
+    lwdata = log10(wdata);
+    ndata = [68,51];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':b','Linewidth',3);
+    % ss4
+    wdata = [9.4, 9.4];
+    lwdata = log10(wdata);
+    ndata = [64,46];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':b','Linewidth',3);
+    % ss3
+    wdata = [6.7, 6.7];
+    lwdata = log10(wdata);
+    ndata = [61,43];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':b','Linewidth',3);
+    % ss2
+    wdata = [4.5, 4.5];
+    lwdata = log10(wdata);
+    ndata = [58,40];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':b','Linewidth',3);
+    % ss1
+    wdata = [2.5, 2.5];
+    lwdata = log10(wdata);
+    ndata = [54,35];
+    fdata = [1000,10000];
+    semilogx(fdata,ndata,':b','Linewidth',3);
+    WFig = figure;
+    % hold on
+    %500 Hz
+    txt = ['\leftarrow ',num2str(1)];
+    text(0,53.5,txt)
+    txt = ['\leftarrow ',num2str(2)];
+    text(0.4,56.5,txt)
+    txt = ['\leftarrow ',num2str(3)];
+    text(0.65,60.6,txt)
+    txt = ['\leftarrow ',num2str(4)];
+    text(0.83,63.75,txt)
+    txt = ['\leftarrow ',num2str(5)];
+    text(0.97,66.53,txt)
+    txt = ['\leftarrow ',num2str(6)];
+    text(1.09,68.95,txt)
+    txt = ['\leftarrow ',num2str(7)];
+    text(1.19,70.96,txt)
+    % mod 500 Hz
+    txt = ['\leftarrow X'];% 3 d=1.5
+    text(0.64,59.1,txt)
+    txt = ['\leftarrow X'];% 4 d=1
+    text(0.83,62.75,txt)
+    txt = ['\leftarrow X'];% 5 d= 0.5
+    text(0.97,66.03,txt)
+    % 1000 Hz
+    txt = ['\leftarrow ',num2str(1)];
+    text(0,51.99,txt)
+    txt = ['\leftarrow ',num2str(2)];
+    text(0.4,54.95,txt)
+    txt = ['\leftarrow ',num2str(3)];
+    text(0.65,59.06,txt)
+    txt = ['\leftarrow ',num2str(4)];
+    text(0.83,62.24,txt)
+    txt = ['\leftarrow ',num2str(5)];
+    text(0.97,65.02,txt)
+    txt = ['\leftarrow ',num2str(6)];
+    text(1.09,67.44,txt)
+    txt = ['\leftarrow ',num2str(7)];
+    text(1.19,69.45,txt)
+    mod 1000 Hz
+    txt = ['\leftarrow *'];
+    text(0.4,52.95,txt)
+    txt = ['\leftarrow *'];
+    text(0.65,56.06,txt)
+    txt = ['\leftarrow *'];
+    text(0.83,60.24,txt)
+    txt = ['\leftarrow *'];
+    text(0.97,64.02,txt)
+    txt = ['\leftarrow *'];
+    text(1.09,67,txt)
+    % 5000 Hz
+    txt = ['\leftarrow ',num2str(1)];
+    text(0,42.49,txt)
+    txt = ['\leftarrow ',num2str(2)];
+    text(0.4,45.44,txt)
+    txt = ['\leftarrow ',num2str(3)];
+    text(0.65,49.55,txt)
+    txt = ['\leftarrow ',num2str(4)];
+    text(0.83,52.76,txt)
+    txt = ['\leftarrow ',num2str(5)];
+    text(0.97,55.1,txt)
+    txt = ['\leftarrow ',num2str(6)];
+    text(1.09,57.18,txt)
+    txt = ['\leftarrow ',num2str(7)];
+    text(1.19,59.34,txt)
+    %20000 Hz
+    txt = ['\leftarrow ',num2str(7)];
+    text(1.19,49.8,txt)
+    txt = ['\leftarrow o'];
+    text(1.19,48.8,txt)
+    txt = ['\leftarrow ',num2str(8)];
+    text(1.279,51.5,txt)
+    txt = ['\leftarrow o'];
+    text(1.279,49.5,txt)
+    txt = ['\leftarrow ',num2str(9)];
+    text(1.354,49.28,txt)
+    txt = ['\leftarrow o'];
+    text(1.354,46.28,txt)
+    %30000 Hz
+    txt = ['\leftarrow ',num2str(9)];
+    text(1.354,43.28,txt)
+    txt = ['\leftarrow o'];
+    text(1.354,39.28,txt)
+    % txt = ['\leftarrow Freq ',num2str(fWi(1))];
+    text(0.05,56,txt)
+    linex = [.7 , .7];
+    liney = [20, 80];
+    plot(linex,liney,'Linewidth',3);
+    linex = [1.2, 1.2];
+    plot(linex,liney,'Linewidth',3);
+end

@@ -1,0 +1,559 @@
+% Compare Wind to LSTA - SINGLE DEPLOYMENT
+% v45 - add mid band  11/2020 - v47 no need to move midband 1/2021 skip48
+% v49 add low band 7/2021
+% JAH 10/2019
+% derived from LTSAdailySpectra.m
+% 141103 smw
+%% Parameters
+clear variables
+% p holds var that come from getWindParams
+% PARAMS get read from the LTSAs
+global p PARAMS
+p = getWindParams; % paramter file
+
+%% Get TF and Depth
+p = getTF; % Save tf incase it gets overwritten in recall
+Psave = p;
+%% calculate or load WindNoise.mat
+% Low df100 Band 1 kHz
+if strcmp(Psave.usel,'y')
+    if strcmp(Psave.calavgl,'y') % calculate WindNoise_low.mat file ?
+        [ptimel,mpwrl,mpwrtfl,freql,eltsal,dfreql,dnewl,wsnewl] = calLTSAl49;  % reads LTSAm files to get averages and gets Wind model
+    else
+        % if low exists load it
+        if exist(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName3))
+            disp(['load: ',p.harp.OutName3])
+            load(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName3),...
+                'ptimel','mpwrl','mpwrtfl','freql','eltsal','dfreql','dnewl','wsnewl','p');
+            % check if tf is correct
+            if p.tf.uppc ~= Psave.tf.uppc
+                disp('Need to update low TF')
+                return
+            end
+        else
+            disp('No existing Low WindNoise file')
+            return
+        end
+    end
+    eltsal = unique(eltsal);
+end
+% Mid df20 Band 5 kHz
+if strcmp(Psave.usem,'y')
+    if strcmp(Psave.calavgm,'y') % calculate WindNoise_mid.mat file ?
+        [ptimem,mpwrm,mpwrtfm,freqm,eltsam,dfreqm,dnewm,wsnewm] = calLTSAm49;  % reads LTSAm files to get averages and gets Wind model
+    else
+        % if mid exists load it
+        if exist(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName2))
+            disp(['load: ',p.harp.OutName2])
+            load(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName2),...
+                'ptimem','mpwrm','mpwrtfm','freqm','eltsam','dfreqm','dnewm','wsnewm','p');
+            if p.tf.uppc ~= Psave.tf.uppc
+                disp('Need to update mid TF')
+                return
+            end
+        else
+            disp('No existing Mid WindNoise file')
+            return
+        end
+    end
+    eltsam = unique(eltsam);
+end
+%High df1 Band 100kHz
+if strcmp(Psave.use,'y')
+    if strcmp(Psave.calavg,'y') % calculate WindNoise.mat file ?
+        [ptime,mpwr,mpwrtf,freq,eltsa,dfreq,dnew,wsnew] = calLTSA49();  % reads LTSA files to get averages and gets Wind model
+        load(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName1));
+    else
+        if exist(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName1))
+            disp(['load: ',p.harp.OutName1])
+            load(fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName1),...
+                'ptime','mpwr','mpwrtf','freq','eltsa','dfreq','dnew','wsnew','p');
+            if p.tf.uppc ~= Psave.tf.uppc
+                disp('Need to update high TF')
+                return
+            end
+        else
+            disp('No existing High WindNoise file')
+            return
+        end
+    end
+    eltsa = unique(eltsa);
+end
+Psave.ltsa =  p.ltsa;
+p = Psave;
+depth = p.tf.depth;
+tf_file = p.tf.tffile;
+fs0 = p.ltsa.fs0;
+fs0m = p.ltsa.fs0m;
+fs0l = p.ltsa.fs0l;
+%%
+% Legacy code needed to correct problems with "mid" files
+% p.harp.OutName1 = [p.harp.p.harp.Proj,p.harp.Site,p.harp.Depl,...
+%     '_WindNoise.mat'];
+% p.harp.OutName2 = [p.harp.p.harp.Proj,p.harp.Site,p.harp.Depl,...
+%     '_WindNoise_mid.mat'];
+% % Correct Outfolder
+% p.harp.OutFolder = 'H:\Wind_TF\Output\newest_TF';
+% p.harp.band = 'mid'; % high mid or low
+% p.harp.OutWinFig = ['H:\Wind_TF\Output\newest_TF\VsFreqVsWind\'];
+% p.harp.OutVsFreq = [p.harp.p.harp.Proj,p.harp.Depl,p.harp.Site,...
+%     '_VsFreq.fig'];
+% p.harp.OutVsWind1 = [p.harp.p.harp.Proj,p.harp.Depl,p.harp.Site,...
+%     '_VsWind.fig'];
+% p.harp.OutVsWind2 = [p.harp.p.harp.Proj,p.harp.Depl,p.harp.Site,...
+%     '_VsWind_mid.fig'];
+% p.harp.OutTFCorr = [p.harp.p.harp.Proj,p.harp.Depl,p.harp.Site,...
+%     '_TFCorr.mat'];
+% p.harp.OutBad =  ['H:\Wind_TF\Output\newest_TF\BAD'];
+%
+
+%% Make Wind vs Noise plots for cleaning data
+if exist('freql','var')
+    if5 = find(freql < 5 + dfreql/2 & freql > 5 - dfreql/2); % 5 Hz
+    if10 = find(freql < 10 + dfreql/2 & freql > 10 - dfreql/2); % 10 Hz
+    if20 = find(freql < 20 + dfreql/2 & freql > 20 - dfreql/2); % 20 Hz
+    if50 = find(freql < 50 + dfreql/2 & freql > 50 - dfreql/2); % 50 Hz
+    if100 = find(freql < 100 + dfreql/2 & freql > 100 - dfreql/2); % 100 Hz
+    if200 = find(freql < 200 + dfreql/2 & freql > 200 - dfreql/2); % 200 Hz
+    if500 = find(freql < 500 + dfreql/2 & freql > 500 - dfreql/2); % 20 Hz
+end
+if exist('freqm','var')
+    iffif = find(freqm < 50 + dfreqm/2 & freqm > 50 - dfreqm/2); % 50 Hz
+    ifhun = find(freqm < 100 + dfreqm/2 & freqm > 100 - dfreqm/2); % 100 Hz
+end
+if fs0 == 200000 ||  fs0 == 320000 || fs0 == 64000 || ...
+        fs0 == 96000 || fs0 == 50000 || fs0 == 48000
+    iffiv = find(freq < 500 + dfreq/2 & freq > 500 - dfreq/2); % 500 Hz
+    ifone = find(freq < 1000 + dfreq/2 & freq > 1000 - dfreq/2); % 1Khz
+    iften = find(freq < 10000 + dfreq/2 & freq > 10000 - dfreq/2); % 10Khz
+    iftwe = find(freq < 20000 + dfreq/2 & freq > 20000 - dfreq/2); % 20Khz
+    ifthr = find(freq < 30000 + dfreq/2 & freq > 30000 - dfreq/2); % 30Khz
+    iffrt = find(freq < 40000 + dfreq/2 & freq > 40000 - dfreq/2); % 40Khz
+    iffff = find(freq < 50000 + dfreq/2 & freq > 50000 - dfreq/2); % 50Khz
+    ifsix = find(freq < 60000 + dfreq/2 & freq > 60000 - dfreq/2); % 60Khz
+    ifsev = find(freq < 70000 + dfreq/2 & freq > 70000 - dfreq/2); % 70Kh
+elseif fs0 == 10000 || fs0 == 20000 || fs0 == 24000 || fs0 == 2000
+    iffiv = find(freq < 500 + dfreq/2 & freq > 500 - dfreq/2); % 500 Hz
+    ifone = find(freq < 1000 + dfreq/2 & freq > 1000 - dfreq/2); % 1Khz
+else
+    disp('Add New Sample Rate')
+    return
+end
+% reduce sig figures to make wind and noise times match, accurate to ~ 7 min
+xp = round(ptime .* 100)./100;
+xw = round(dnew' .* 100)./100;
+[~,inoise,iwind] = intersect(xp,xw);
+% mid
+xpm = round(ptimem .* 100)./100;
+[~,inoisem,iwindm] = intersect(xpm,xw);
+[~,~,iXm] = intersect(iwind,iwindm);% make wind agree for mid and high
+% low
+xpl = round(ptimel .* 100)./100;
+[~,inoisel,iwindl] = intersect(xpl,xw);
+[~,~,iXl] = intersect(iwind,iwindl);% make wind agree for low and mid
+
+% make figures
+isok = cell(1,6); % array to hold edited data
+figure(2); clf; set(2,'name',sprintf('Wind vs Noise'));
+set(gcf,'position',[20 500 600 450]);
+h1 = subplot(3,2,1);
+plot(h1,wsnew(iwindm(iXm)),mpwrtfm(iffif,inoisem(iXm)),'ro'); %use 50 Hz
+legend(h1,'50 Hz','Location','southeast');
+grid on; hold on;
+[isok{1,1}] = createFit4(wsnew(iwindm(iXm)),mpwrtfm(iffif,inoisem(iXm)),...
+    wsnew(iwindm(iXm)),mpwrtfm(iffif,inoisem(iXm)),h1 );
+%
+h2 = subplot(3,2,2);
+plot(h2,wsnew(iwindm(iXm)),mpwrtfm(ifhun,inoisem(iXm)),'ro'); %use 500 Hz
+legend(h2,'100 Hz','Location','southeast');
+grid on; hold on;
+[isok{1,2}] = createFit4(wsnew(iwindm(iXm)),mpwrtfm(ifhun,inoisem(iXm)),...
+    wsnew(iwindm(iXm)),mpwrtfm(ifhun,inoisem(iXm)),h2 );
+%
+h3 = subplot(3,2,3);
+plot(h3,wsnew(iwind),mpwrtf(iffiv,inoise),'ro'); %use 500 Hz
+legend(h3,'500 Hz','Location','southeast');
+grid on; hold on;
+[isok{1,3}] = createFit4(wsnew(iwind),mpwrtf(iffiv,inoise),...
+    wsnew(iwind),mpwrtf(iffiv,inoise),h3 );
+%
+h4 = subplot(3,2,4);
+plot(h4,wsnew(iwind),mpwrtf(ifone,inoise),'ro');%use 1 kH
+legend(h4,'1 kHz','Location','southeast');
+grid on; hold on;
+[isok{1,4}] = createFit4(wsnew(iwind),mpwrtf(ifone,inoise),...
+    wsnew(iwind),mpwrtf(ifone,inoise),h4 );
+
+if fs0 ==  320000 || fs0 ==  200000 || fs0 == 96000 || ...
+        fs0 == 64000 || fs0 == 50000 || fs0 == 48000
+    h5 = subplot(3,2,5);
+    plot(h5,wsnew(iwind),mpwrtf(iften,inoise),'ro');%use 10 kH
+    legend(h5,'10 kHz','Location','southeast');
+    grid on; hold on;
+    [isok{1,5}] = createFit4(wsnew(iwind),mpwrtf(iften,inoise),...
+        wsnew(iwind),mpwrtf(iften,inoise),h5 );
+    %
+    h6 = subplot(3,2,6);
+    plot(h6,wsnew(iwind),mpwrtf(iftwe,inoise),'ro');%use 20 kH
+    legend(h6,'20 kHz','Location','southeast');
+    grid on; hold on;
+    [isok{1,6}] = createFit4(wsnew(iwind),mpwrtf(iftwe,inoise),...
+        wsnew(iwind),mpwrtf(iftwe,inoise),h6 );
+end
+subplot(3,2,1)
+xlabel('Wind Speed m/s');
+ylabel('Spectrum Level [dB re uPa^2/Hz]');
+title([p.harp.dBaseName,'Noise vs Wind Speed']);
+%
+% plot for high frequency noise
+figure(20); clf; set(2,'name',sprintf('Wind vs Noise'));
+h21 = subplot(3,2,1);
+plot(h21,wsnew(iwind),mpwrtf(iftwe,inoise),'ro');%use 20 kH
+legend(h21,'20 kHz','Location','southeast');
+grid on; hold on;
+h22 = subplot(3,2,2);
+plot(h22,wsnew(iwind),mpwrtf(ifthr,inoise),'ro');%use 30 kH
+legend(h22,'30 kHz','Location','southeast');
+grid on; hold on;
+h23 = subplot(3,2,3);
+plot(h23,wsnew(iwind),mpwrtf(iffrt,inoise),'ro');%use 40 kH
+legend(h23,'40 kHz','Location','southeast');
+grid on; hold on;
+h24 = subplot(3,2,4);
+plot(h24,wsnew(iwind),mpwrtf(iffff,inoise),'ro');%use 50 kH
+legend(h24,'50 kHz','Location','southeast');
+grid on; hold on;
+h25 = subplot(3,2,5);
+plot(h25,wsnew(iwind),mpwrtf(ifsix,inoise),'ro');%use 50 kH
+legend(h25,'60 kHz','Location','southeast');
+grid on; hold on;
+h26 = subplot(3,2,6);
+plot(h26,wsnew(iwind),mpwrtf(ifsev,inoise),'ro');%use 50 kH
+legend(h26,'70 kHz','Location','southeast');
+grid on; hold on;
+subplot(3,2,1)
+xlabel('Wind Speed m/s');
+ylabel('Spectrum Level [dB re uPa^2/Hz]');
+title([p.harp.dBaseName,'Noise vs Wind Speed: High Frequency']);
+%% Eliminate Bad Points in Noise vs wind Plots
+% editing based on function selectdata
+if ~exist('zTD','var')
+    % overlap of all
+    zTD = mintersect(isok{1,1}, isok{1,2}, isok{1,3}, isok{1,4}, isok{1,5}, isok{1,6});
+else
+    zTD = mintersect(isok{1,1}, isok{1,2}, zTD);
+    disp('using existing zTD')
+end
+if ~exist('zTDm','var')
+    %     % overlap of 50 Hz and 100 Hz
+    %     zTDm = intersect(isok{1,1}, isok{1,2});
+    zTDm = [];
+else
+    disp('using existing zTDm')
+end
+disp('Done with cleaning');
+revise = 'd';
+while strcmp(revise,'d')
+    wnfile = fullfile(p.harp.OutFolder,'WindNoiseMat',p.harp.OutName1);
+    save(wnfile) % save all workspace
+    wsfinal = wsnew(iwind(zTD));
+    mpwfinal = mpwrtf(:,inoise(zTD));
+    smpw = size(mpwfinal);
+    nf = smpw(1);
+    wsfinalm = wsnew(iwindm(iXm(zTD)));
+    mpwfinalm = mpwrtfm(:,inoisem(iXm(zTD)));
+    smpwm = size(mpwfinalm);
+    nfm = smpwm(1);
+    figure(3); clf;
+    plot(wsfinal',mpwfinal(iffiv,:),'ko'); %use 1 kHz noise
+    hold on
+    plot(wsfinal',mpwfinal(ifone,:),'bo'); %use 1 kHz noise
+    plot(wsfinal,mpwfinal(iften,:),'ro'); %use 1 %use 10 kH
+    plot(wsfinal,mpwfinal(iftwe,:),'go'); %use 1 %use 20 kH
+    legend('500 Hz','1 kHz','10 kHz','20 kHz','Location','northwest');
+    figure(4); clf;
+    plot(wsfinalm',mpwfinalm(iffif,:),'ko'); %use 50 Hz noise
+    hold on
+    plot(wsfinalm',mpwfinalm(ifhun,:),'bo'); %use 100Hz noise
+    legend('50 Hz','100 Hz','Location','southeast');
+    %% save wind vs noise figure
+    %wnfigname = fullfile(WindFolder,'WindvsNoise',[p.harp.dBaseName,'WindNoise']);
+    wnfignam2 = fullfile(p.harp.OutWinFig,[p.harp.dBaseName,'WindNoisefit']);
+    figure(2);
+    savefig(wnfignam2)
+    wnfignam3 = fullfile(p.harp.OutWinFig,[p.harp.dBaseName,'WindNoise']);
+    figure(3);
+    savefig(wnfignam3)
+    wnfignam4 = fullfile(p.harp.OutWinFig,[p.harp.dBaseName,'WindNoise_mid']);
+    figure(4);
+    savefig(wnfignam4)
+    wnfignam20 = fullfile(p.harp.OutWinFig,[p.harp.dBaseName,'WindNoise_high']);
+    figure(20);
+    savefig(wnfignam20)
+    %sort into speed bins
+    [MPTF] = WindSort(wsfinal,mpwfinal); % Mean Pressure TF corrected
+    [MPTFm] = WindSort(wsfinalm,mpwfinalm);
+    %
+    if (~exist('depth') || isnan(depth))
+        prompt = ' Please Enter Depth in m: ';
+        depth = input(prompt);
+    end
+    % Ocean Wind Noise Model Knudsen6 has extra depth dependent term
+    %     [kd,ss,f,ms] = NoiseModel(depth);  %Knudsen5
+    %     [kdp,ss,fnm,ms] = NoiseModelnew(depth,2,400,5,100,12);  % new Knudsen6
+    a=2; b=600; aof=0; bof=100; cof=12; %Knudsen 8
+    nfacl = 1000; mfacl = 1000; mfacf = 150; mfaca = 3;%
+    [kdp,ss,fnm,ms] = NoiseModelnew(depth,a,b,aof,bof,cof,nfacl,mfacl,mfacf,mfaca);  % Knudsen8
+    fm = .01 : .01 : 1; % 10 Hz - 1 khz
+    kdm = zeros(11,100);
+    for i = 1:11
+        kdm(i,:) = interp1([fnm(1:10),fnm(12:20)],...
+            [kdp(i,1:10),kdp(i,12:20)],fm); %10 Hz -1000 Hz
+    end
+    kd = kdp(:,11:end);
+    % plot Knudsen curves
+    if strcmp(p.NMPlt,'on')
+        nmFig = figure(5); clf;
+        for i = 1: length(ms)
+            semilogx(1000*fnm, kdp(i,:),'k','LineWidth',2);
+            if i == 1
+                hold on
+            end
+        end
+        i=5;
+        semilogx(1000*fnm, kdp(i,:),'r','LineWidth',2); % ss = 4 is log10(ms) = 1
+        axis([10,160000,10,95]);
+        xlabel('Frequency [Hz]')
+        ylabel('dB re uPa^2/Hz')
+        ttitle = ['Noise Model ',num2str(depth),' m ',...
+            p.harp.dBaseName,' Hyd ',tf_file(1:3)];
+        title(ttitle)
+        grid on
+        hold on
+    end
+    % Theory is fnm starts with .01 kHz (need to x 1000)
+    % Data is freq and freq mstarts with 0 then 100 (Hz)
+    % fnm is frequency for the noise model
+    itf = 1; % increases with wind speed
+    TFCorr = NaN(8,nf-1); TFCorrm = NaN(8,nfm-1); % 
+    iplot = 1;
+    for  i = 2 : 9    % start at i = 2 ss1 end i=9 ss8
+        if ~isempty(MPTF{i}) && ~isempty(MPTFm{i})
+            % Average MPTF: AMm and AM start at 10 Hz and 100 Hz
+            smptf = size((MPTF{i}(2:nf,:)')); % 200 Hz to 30 kHz
+            if smptf(1) > 1
+                AM = mean(MPTF{i}(2:nf,:)');
+            elseif smptf(1) == 1
+                AM = MPTF{i}(2:nf,:)';
+            end
+            smptfm = size((MPTFm{i}(2:501,:)')); %
+            if smptfm(1) > 1
+                AMm = mean(MPTFm{i}(2:501,:)'); % 20 Hz to 5 kHz hardwired for 501 nf
+            elseif smptfm(1) == 1
+                AMm = MPTFm{i}(2:501,:)'; % hardwired for 501 mid frequency nf
+            end
+            % make TF Correction
+            TFCorrm(itf,1:100) = kdm(i,1:100) - AMm(1:100); % first value is 10 Hz last 1000 Hz
+            TFCorr(itf,1:nf-1) = kd(i,1:nf-1) - AM(1:nf-1); % first value is 100 Hz last highest freq
+            itf = itf + 1;
+            if strcmp(p.FrePlt,'on')
+                if iplot ==1
+                    ssFig = figure(6); clf;
+                end
+                figure(ssFig);
+                subplot(4,2,iplot)  % 9 subplots = 3 x 3
+                semilogx(freq(5:nf),MPTF{i}(5:nf,:)); % from 200 Hz to 30 kHz
+                hold on
+                semilogx(freqm(3:41),MPTFm{i}(3:41,:)); % from 20 Hz to 200 Hz
+                semilogx(1000*fnm,kdp(i,:),'r','LineWidth',3); % theory as a line
+                semilogx(freq(5:nf),AM(4:nf-1),'k','Linestyle',':','LineWidth',3); % from 200 Hz to 30 kHz
+                semilogx(freqm(3:41),AMm(2:40),'k','Linestyle',':','LineWidth',3); % from 20 Hz to 100 Hz
+                grid on
+                ftxt =['Beaufort Force' ,num2str(ss(i))];
+                text(1000,94,ftxt)
+                v = [20 10e4 25 110];
+                xticks([10 100 1000 10000 100000])
+                axis(v)
+                if iplot > 6
+                    xlabel('Frequency [Hz]')
+                end
+                if any(iplot == [1,3,5,7])
+                    ylabel('dB re uPa^2/Hz')
+                end
+                iplot = iplot + 1;
+            end
+        end
+    end
+    % Save SS Figure
+    ssfile = fullfile(p.harp.OutFolder,'VsFreqVsWind',p.harp.OutVsFreq);
+    savefig(ssFig,ssfile)
+    % Frequencies for plotting
+    if (fs0 == 200000 || fs0 == 320000)
+        ifr = [.2, .5, 1, 2, 5, 10, 20, 30, 40, 50, 75, 100]; % freq in kHz
+    elseif (fs0 == 64000 || fs0 == 96000)
+        ifr = [.2, .5, 1, 2, 5, 10, 20, 30, 40]; % freq in kHz
+    elseif fs0 == 48000 || fs0 == 50000
+        ifr = [.2, .5, 1, 2, 5, 10, 20]; % freq in kHz
+    end
+    ifrm = [.02,.05,.1,.2,.3,.4,.5,.6,1];
+    % REgress
+    % mid
+    [SlopeLRm,OffSetLRm,LRr2m,SlopeTSm,OffSetTSm,SlopeTSum,OffSetTSum,fTSm] = WNRegress1(...
+        p.harp.OutFolder,p.harp.OutVsWind2,p.harp.Proj,p.harp.Site,p.harp.Depl,ttitle,depth,...
+        wsfinalm,mpwfinalm,ptimem,dnew,kdm,ms,fs0,ifrm,freqm,...
+        dfreqm,p.RegPlt,7);
+    % high
+    [SlopeLR,OffSetLR,LRr2,SlopeTS,OffSetTS,SlopeTSu,OffSetTSu,fTS] = WNRegress1(...
+        p.harp.OutFolder,p.harp.OutVsWind1,p.harp.Proj,p.harp.Site,p.harp.Depl,ttitle,depth,...
+        wsfinal,mpwfinal,ptime,dnew,kd,ms,fs0,ifr,freq,...
+        dfreq,p.RegPlt,8);
+    %
+    % Make TF Correction
+    % for mid freq use only ss4 - ss8
+    MTFCorrm = mean(TFCorrm(4:8,:),'omitnan');%starts with freq = 10 Hz
+    if isnan(MTFCorrm(1))
+        MTFCorrm = TFCorrm(3,:);%s
+        disp(' Used SS3 for mid')
+    end
+    % for high freq use only ss2 - ss8
+    MTFCorr = mean(TFCorr(2:8,:),'omitnan');  %starts with freq = 100 Hz
+    MTFCorra = [MTFCorrm(10:10:40),MTFCorr(5:end)]; %replace point at 100 Hz
+    nMT = isnan(MTFCorr);
+    inMT = find(nMT > 0);
+    if (~isempty(inMT))
+        for i = 1 : length(inMT)
+            MTFCorr(inMT(i))=(MTFCorr(inMT(i)-1)+MTFCorr(inMT(i)+1))/2 ;
+        end
+    end
+    nMTm = isnan(MTFCorrm(1:100)); % correct Nan
+    inMTm = find(nMTm > 0);
+    if (~isempty(inMTm))
+        for i = 1 : length(inMTm)
+            MTFCorrm(inMTm(i))=(MTFCorrm(inMTm(i)-1)+MTFCorrm(inMTm(i)+1))/2 ;
+        end
+    end
+    figure(9); clf;
+    semilogx(freq(2:nf),MTFCorr(1:nf-1),'r','LineWidth',3); %
+    hold on
+    semilogx(freq(2:nf),MTFCorra(1:nf-1),'k:','LineWidth',3); %
+    semilogx(freqm(2:101),MTFCorrm(1:100),'r--','LineWidth',3); %
+    v = [10 1e5 -10 5];
+    axis(v)
+    grid on
+    title([p.harp.dBaseName,' Hydrophone ',tf_file(1:3)])
+    xlabel('Frequency [Hz]')
+    ylabel('dB re uPa//counts')
+    %
+    %% Make New TF
+    % MAKE TF CORRECTION > 500 Hz < 20 kHz
+    % note freq = (count -1)*100 Hz
+    col = floor(300/100);  % 300 Hz start
+    coh = floor(20000/100);  % mod tf cutoff frequencies in Hz
+    % Transfer function correction vector
+    Ptf = interp1(p.tf.freq,p.tf.uppc,freq,'linear','extrap');
+    %
+    [TFold, TFnew] = tfmake(col, coh, freq, Ptf, MTFCorra,p.tf.tfn);
+    %Make TF Figure
+    TFFig = figure(10); clf;
+    [TFFig] = tffigmake(TFFig,TFnew,TFold,tf_file,p.harp.dBaseName,col,coh);
+    %%
+    revise = input('Revise Data: d ; Cutoff: c; Bad x; other key end  ','s');
+    if strcmp(p.revise,'d')
+        disp('Revise Data')
+        celnums = inputdlg({'Enter Freq', 'Add=a Subtact=s'}, 'Data Edit', [1 20; 1 20]);
+        efreq = str2double(celnums{1});
+        addsub = (celnums{2});
+        % make figure to edit
+        if efreq == 50
+            ifx = iffif;
+        elseif efreq == 100
+            ifx = ifhun;
+        elseif efreq == 500
+            ifx = iffiv;
+        elseif efreq == 1000
+            ifx = ifone;
+        elseif efreq == 10000
+            ifx = iften;
+        elseif efreq == 20000
+            ifx = iftwe;
+        else
+            ifx = ifone;
+            disp([num2str(efreq),' not available for edit ... using 1000'])
+        end
+        figure(1); clf; set(1,'name',sprintf('Wind vs Noise')); h1 = gca;
+        if (ifx == iffif || ifx == ifhun)
+            plot(h1,wsnew(iwindm),mpwrtfm(ifx,inoisem),'o'); %use mid select
+        else
+            plot(h1,wsnew(iwind),mpwrtf(ifx,inoise),'o'); %use selected noise
+        end
+        legend(h1,[num2str(efreq),' Hz'],'Location','southeast');
+        grid on; hold on;
+        if strcmp(addsub,'a')
+            pl = selectdataA('selectionmode','brush');
+            if (ifx == iffif || ifx == ifhun)
+                zTDm = [zTDm, pl'];
+                zTDm = unique(zTDm); % remove duplicated
+            else
+                zTD = [zTD, pl'];
+                zTD = unique(zTD); % remove duplicated
+            end
+        end
+        if strcmp(addsub,'s')
+            pl = selectdataS('selectionmode','brush');
+            if (ifx == iffif || ifx == ifhun)
+                zTDm = setdiff(zTDm, pl);
+            else
+                zTD = setdiff(zTD, pl);
+            end
+        end
+        close(1); close(3);
+        close(4); close(5); close(6); close(7);
+    elseif strcmp(revise,'c')
+        cutlow = input('Low cutoff Hz: ');
+        col = floor(cutlow/100);
+        cuthigh = input('High cuttoff Hz: ');
+        coh = floor(cuthigh/100);
+        [TFold, TFnew] = tfmake(col, coh, freq, Ptf, MTFCorra,p.tf.tfn);
+        figure(TFFig); clf;
+        [TFFig] = tffigmake(TFFig,TFnew,TFold,tf_file,p.harp.dBaseName,col,coh);
+    elseif strcmp(p.revise,'x') % bad result move files to "bad" folder
+        SaveTF = 'no';
+        wnfilebad = fullfile(p.harp.OutFolder,'BAD',p.harp.OutName1);
+        status1 = movefile(wnfile,wnfilebad);
+        wnfignam2bad = fullfile(p.harp.OutBad,[p.harp.dBaseName,'WindNoisefit']);
+        status2 = movefile([wnfignam2,'.fig'],wnfignam2bad);
+        wnfignam3bad = fullfile(p.harp.OutBad,[p.harp.dBaseName,'WindNoise']);
+        status3 = movefile([wnfignam3,'.fig'],wnfignam3bad);
+        ssfilebad = fullfile(p.harp.OutBad,p.harp.OutVsFreq);
+        status4 = movefile(ssfile,ssfilebad);
+        VsWindfile = fullfile(p.harp.OutFolder,'VsFreqVsWind',OutVsWind);
+        VsWindfilebad = fullfile(p.harp.OutBad,OutVsWind);
+        status5 = movefile(VsWindfile,VsWindfilebad);
+        if (status1 && status2 && status3 && status4 && status5)
+            disp('Successful Move to BAD folder')
+        else
+            disp(' Failed move to BAD folder')
+        end
+    end
+end
+% save in inverse sensitivity tf format in original TF Folder
+if strcmp(p.SaveTF,'yes')
+    tfcorrfile = fullfile(p.harp.OutFolder,'TFCorr',p.harp.OutTFCorr);
+    fre = freq(2:1001);
+    tfn = str2num(tf_file(1:3));
+    save(tfcorrfile,'fre','MTFCorra','MTFCorr','TFCorr','MTFCorrm','TFCorrm','depth','tfn',...
+        'SlopeLRm','OffSetLRm','LRr2m','SlopeTSm','OffSetTSm','fTSm','SlopeTSum','OffSetTSum',...
+        'SlopeLR','OffSetLR','LRr2','SlopeTS','OffSetTS','fTS','SlopeTSu','OffSetTSu',...
+        'col','coh');
+    % save TF_Wind in Folder in Output
+    tfnewfile = fullfile(p.harp.OutFolder,'TF_Wind',...
+        [tf_file(1:3),'_',p.harp.Proj,p.harp.Site,p.harp.Depl,'_TFnew.tf']);
+    save(tfnewfile,'TFnew','-ascii','-tabs');
+    tfnewfig = fullfile(p.harp.OutFolder,'TF_Wind',...
+        [tf_file(1:3),'_',p.harp.Proj,p.harp.Site,p.harp.Depl,'_TFnewfig']);
+    savefig(TFFig,tfnewfig)
+    tfnewfigpdf = fullfile(p.harp.OutFolder,'TF_Wind',...
+        [tf_file(1:3),'_',p.harp.Proj,p.harp.Site,p.harp.Depl,'_TFnewfig.pdf']);
+    saveas(TFFig,tfnewfigpdf)
+end
+%
