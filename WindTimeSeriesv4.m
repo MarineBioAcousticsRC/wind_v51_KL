@@ -27,12 +27,12 @@
 clear;
 
 %% ========================== USER INPUT ============================= %%
-yearRange = 2024:2025;      % <-- deployment year(s). e.g. 2016:2018, or [2017 2019] - for single year, can do 2017:2017
+yearRange = 2023:2024;      % <-- deployment year(s). e.g. 2016:2018, or [2017 2019] - for single year, can do 2017:2017
 Proj      = 'GofMX';          % <-- region
-sites = {'Y5B','Y5C','Y5D','SF','SJ'};
+sites = {'Y4A','Y4B','Y4D'};
 % sites     = {'HP','PR','SW','SZ'};         % <-- one or more site names, e.g. {'HP','PR','SW'}
 
-outpath = 'C:\Users\Kieran Lenssen\Documents\GitHub\KLcode\wind\WindTimeSeries_Results'; % where to save processed data
+outpath = 'C:\Users\Kieran Lenssen\Documents\GitHub\wind_v51_KL\WindTimeSeries_Results'; % where to save processed data
 
 %% ======================== END USER INPUT ============================ %%
 
@@ -69,9 +69,20 @@ for yr = yearRange
         slon = 360 - slon;
     %pre = '/Volumes/CzikoAudio1/WIND/CCMP/';
     %pre = '/Users/jah 1 2/Ddirectory/Whale/WIND/CCMP/';
-    % get latitude and longitude loction from first file
-        [f,mid,post,lat,lon] = CCMP_Variant(...
-            pre,pre0,year,'01','01',mid0,mid1,mid2,post0,post1,post2);
+    % --- resolve the CCMP file variant and the lat/lon axes ONCE ---
+    % Was: CCMP_Variant called again for every single day of the year, which
+    % cost 3 exist() stats plus 2 ncread opens per day on Z: - and the lat/lon
+    % it returned were thrown away, since ilat/ilon are fixed below. Now the
+    % variant and the axes are resolved once and the daily filename is built
+    % directly, with a per-day fallback if a year ever mixes variants.
+        [ccmpVariant,f,lat,lon] = ccmpResolveYear(...
+            pre,pre0,year,yr,mid0,mid1,mid2,post0,post1,post2);
+    if ccmpVariant < 0
+            warning('No CCMP file found anywhere in %s - skipping %s%s %s.', ...
+                fullfile(pre,year),Proj,site,year);
+    continue
+    end
+        fprintf(' CCMP file variant %d, e.g. %s\n',ccmpVariant,f);
     % find point near deployment site
         slat25 = (round((slat+.125) * 4))/4 - .125;
         slon25 = (round((slon+.125) * 4))/4 - .125;
@@ -80,6 +91,12 @@ for yr = yearRange
         disp([' Del-Lon = ',num2str(slon - slon25),' deg']);
         ilat = find(lat == slat25);
         ilon = find(lon == slon25);
+    if isempty(ilat) || isempty(ilon)
+            warning(['Site %s%s does not land on a CCMP grid point ', ...
+                '(slat25 = %g, slon25 = %g) - skipping %s.'], ...
+                Proj,site,slat25,slon25,year);
+    continue
+    end
     % --- Site vs. CCMP grid-point check figure ---
     % Quick visual sanity check, run before the (slow) day loop below, showing
     % the desired deployment location against the actual CCMP grid point being
@@ -161,9 +178,22 @@ for yr = yearRange
         saveas(figLoc,fsLoc,'png'); % quick-view raster version
 %         save(fsLoc,'Proj','site','year','slat','slon_std','slat25','slon25_std','dist_km');
     % --- end site vs. CCMP grid-point check figure ---
-        dnvec = zeros(4*365,1);  ivec = 0;
+        nDaysYr = 365 + (eomday(yr,2) == 29);   % 366 in a leap year
+        dnvec = zeros(4*nDaysYr,1);  ivec = 0;
         uwvec = dnvec;  vwvec = dnvec;
+    % progress readout, one line per month. Months are uneven and February
+    % moves with leap years, so days/month is not a fixed number - the line
+    % prints the actual count for that month, and the estimate below is
+    % based on months completed rather than days, which keeps it honest.
+        tYear = tic;
+        monthNames = {'Jan','Feb','Mar','Apr','May','Jun', ...
+                      'Jul','Aug','Sep','Oct','Nov','Dec'};
+        nMissYear = 0;
+        fprintf('  %-4s %-8s %8s %10s %9s\n', ...
+    'mon','days','samples','elapsed','remaining');
     for month = 1:12
+            tMonth = tic;
+            nGotMon = 0;  nMissMon = 0;
     if month < 10
                 ml = num2str(month);
                 m = ['0',ml];
@@ -178,9 +208,18 @@ for yr = yearRange
     else
                     d = num2str(day);
     end
-                [f,mid,post,lat,lon] = CCMP_Variant(...
-            pre,pre0,year,m,d,mid0,mid1,mid2,post0,post1,post2);
-    if ~strcmp(f,'n')
+    % build the day's filename from the variant resolved above - one
+    % exist() instead of three, and no lat/lon re-read
+                f = ccmpFileName(ccmpVariant,pre,pre0,year,m,d, ...
+                    mid0,mid1,mid2,post0,post1,post2);
+                haveFile = (exist(f,'file') == 2);   % one stat, not three
+    if ~haveFile
+    % rare: a year that mixes variants. Fall back to the full search.
+                    f = CCMP_Variant(pre,pre0,year,m,d, ...
+                        mid0,mid1,mid2,post0,post1,post2);
+                    haveFile = ~strcmp(f,'n');
+    end
+    if haveFile
     % Open the file once and pull only the single grid point (ilon,ilat)
     % across all 4 timesteps for both variables, instead of reading the
     % full global grid via ncread. Big win on a network drive.
@@ -197,6 +236,7 @@ for yr = yearRange
                         tihr = [];
     end
     if ~isempty(tihr)
+                        nGotMon = nGotMon + 1;
     for i = 1:4
                         ivec = ivec + 1;
                         dnvec(ivec) = datenum([1987,0,1,tihr(i),0,0]);
@@ -212,12 +252,30 @@ for yr = yearRange
     end
     end
     else
+                    nMissMon = nMissMon + 1;
                     disp(['Not Valid Date:  ',year,m,d]);
     end
     end
+    % ---- end of month: progress line ----
+            nMissYear = nMissYear + nMissMon;
+            tEl  = toc(tYear);
+            tRem = tEl/month * (12 - month);
+    if nMissMon > 0
+                missTxt = sprintf('%d/%d*',nGotMon,ndays);
+    else
+                missTxt = sprintf('%d/%d',nGotMon,ndays);
     end
+            fprintf('  %-4s %-8s %8d %8.1f s %7.1f s\n', ...
+                monthNames{month},missTxt,ivec,tEl,tRem);
+    end
+    if nMissYear > 0
+            fprintf(['  * %d day(s) had no CCMP file this year - see the ', ...
+    '"Not Valid Date" lines above\n'],nMissYear);
+    end
+        fprintf('  %s%s %s done: %d samples in %.1f s\n', ...
+            Proj,site,year,ivec,toc(tYear));
     % plot wind speed
-        figure
+        figTS = figure;
         subplot(2,1,1)
         wspeed = sqrt(uwvec.^2 + vwvec.^2);
     % take out bad data
@@ -249,7 +307,85 @@ for yr = yearRange
         fs = fullfile(outdir,[Proj,site,'windvec']);
         save(fs,'Proj','site','year','slat25','slon25','dnvec','uwvec','vwvec',...
     'wspeed','wmetdir');
-        saveas(gcf,fs,'pdf');
+        saveas(figTS,fs,'pdf');
+
+    % ---------------- Polar wind direction figure ----------------
+    % Ported from WindTimeSeries_NDBC.m so CCMP years get the same view.
+    % Angle = met direction (from N, clockwise compass sense).
+    % Radius = day-of-year, so January is near the centre and December is
+    % out at the rim. Colour = wind speed.
+    % No thinning here: CCMP is 6-hourly, ~1460 points a year, so every
+    % point is plotted. The buoy version uses skip = 6 because 10-minute
+    % data would otherwise fill the disc solid.
+        figPolar = figure('Name',[Proj,site,' CCMP Polar Wind ',year]);
+        doy   = dnvec - datenum(yr,1,1);    % days since Jan 1
+        rPlot = sqrt(doy);                  % area-proportional radius
+        theta = deg2rad(wmetdir);
+        polarscatter(theta,rPlot,12,wspeed,'filled');
+        axP = gca;
+        axP.ThetaZeroLocation = 'top';
+        axP.ThetaDir          = 'clockwise';
+        colormap(axP,'turbo');   % or parula, jet, cool, hot, etc.
+        cb = colorbar; cb.Label.String = 'Wind speed (m/s)';
+    % ticks at sqrt of each month-start day so the labels land correctly
+        monthStarts = datenum(yr,1:12,1) - datenum(yr,1,1);
+        axP.RTick      = sqrt(monthStarts(1:3:end));   % Jan, Apr, Jul, Oct
+        axP.RTickLabel = {'Jan','Apr','Jul','Oct'};
+        title({[Proj,site,' CCMP Wind Direction ',year], ...
+    'angle = met dir (from N), radius = month, colour = speed'});
+        fsPolar = fullfile(outdir,[Proj,site,'_CCMP_polarwind_',year]);
+        saveas(figPolar,fsPolar,'png');
+        fprintf('  Saved polar plot: %s.png\n',fsPolar);
     %
     end % site loop
 end % year loop
+
+%% ===================== local functions ================================
+function f = ccmpFileName(variant,pre,pre0,year,m,d, ...
+    mid0,mid1,mid2,post0,post1,post2)
+%CCMPFILENAME  Build a CCMP filename for one day, for a known variant.
+% Mirrors the three name patterns CCMP_Variant.m tests, so the daily loop
+% can skip its three exist() calls and two lat/lon reads.
+switch variant
+    case 0
+        f = fullfile(pre,year,[pre0,m,mid0,year,m,d,post0]);
+    case 1
+        f = fullfile(pre,year,[mid1,year,m,d,post1]);
+    case 2
+        f = fullfile(pre,year,[mid2,year,m,d,post2]);
+    otherwise
+        f = '';
+end
+end
+
+function [variant,f,lat,lon] = ccmpResolveYear(pre,pre0,year,yr, ...
+    mid0,mid1,mid2,post0,post1,post2)
+%CCMPRESOLVEYEAR  Which CCMP naming variant does this year use, and its axes.
+% Probes days until a file turns up - Jan 1 is not guaranteed to exist -
+% then reads the latitude/longitude vectors once for the whole year.
+% Variant numbering and the search order match CCMP_Variant.m: 1, then 2,
+% then 0. Returns variant = -1 if nothing is found all year.
+variant = -1; f = ''; lat = []; lon = [];
+for month = 1:12
+    m = sprintf('%02d',month);
+    for day = 1:eomday(yr,month)
+        d = sprintf('%02d',day);
+        for v = [1 2 0]
+            cand = ccmpFileName(v,pre,pre0,year,m,d, ...
+                mid0,mid1,mid2,post0,post1,post2);
+            if exist(cand,'file') == 2
+                variant = v;
+                f = cand;
+                if v == 0
+                    lat = ncread(f,'lat');
+                    lon = ncread(f,'lon');
+                else
+                    lat = ncread(f,'latitude');
+                    lon = ncread(f,'longitude');
+                end
+                return
+            end
+        end
+    end
+end
+end

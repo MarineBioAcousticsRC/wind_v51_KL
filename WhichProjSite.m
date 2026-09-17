@@ -261,6 +261,27 @@ if strcmp(Proj,'Antarc')
     end
 end
 
+% ==== CANARC: OUTSTANDING - reviewed 2026-09-01, deliberately NOT changed ====
+% Checked against 2023dep_to_260828rec.xlsx. Three things are unresolved and
+% were left alone pending a look at the field logs:
+%
+%  1. PI  - the slon = 74.5 below is 57 km from every recent deployment and is
+%           the only coordinate in this file with no decimals, which reads like
+%           a placeholder. Deployments 08-11 agree with each other to 1.4 km:
+%             CANARC_PI_08  72-44.724 N  76-12.948 W
+%             CANARC_PI_09  72-44.935 N  76-13.656 W
+%             CANARC_PI_10  72-44.820 N  76-12.084 W
+%             CANARC_PI_11  72-44.747 N  76-16.339 W
+%           mean 72.74678 N, 76.22928 W
+%
+%  2. QK  - not yet added. CANARC_QK_02 = 63-51.034 N, 75-43.572 W
+%           -> 63.85057 N, 75.72620 W
+%
+%  3. TL  - not yet added. CANARC_TL_01 latitude in the sheet reads
+%           '70-08-220 N', a hyphen where the decimal point should be.
+%           If it means 70-08.220 N then 70.13700 N, 78.32770 W.
+%           Confirm before adding.
+% ============================================================================
 if strcmp(Proj,'CANARC')
     switch site
         case 'PI'
